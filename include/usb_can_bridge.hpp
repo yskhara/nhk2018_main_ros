@@ -1,9 +1,11 @@
 /*
- * usb_can_node.cpp
+ * usb_can_bridge.hpp
  *
- *  Created on: Mar 4, 2018
+ *  Created on: May 12, 2018
  *      Author: yusaku
  */
+
+#pragma once
 
 #include <ros/ros.h>
 
@@ -24,23 +26,19 @@ using namespace std;
 using namespace boost::asio;
 
 
-
-class UsbCanNode
+class usb_can_bridge
 {
 public:
-	UsbCanNode(void);
+	usb_can_bridge(const string& port_name, const unsigned int can_baud, const unsigned int uart_baud);
+	~usb_can_bridge();
 
-	bool Initialize(void);
+	void async_open(void);
+	void async_close(void);
 
-	bool Open(void);
-	bool Close(void);
+	string async_read(void);
+	void async_write(const string str);
 
-	bool Start(void);
-	bool Stop(void);
-
-	bool SetBaudRate(const int baud);
-
-	void Dispose(void);
+	void async_set_baud_rate(const int baud);
 
 private:
 	ros::NodeHandle _nh;
@@ -111,7 +109,7 @@ private:
 };
 
 
-UsbCanNode::UsbCanNode(void)
+UsbCanBridge::usb_can_bridge(void)
 {
 	auto nh_priv = ros::NodeHandle("~");
 	if(!nh_priv.getParam("port", _port_name))
@@ -151,13 +149,13 @@ UsbCanNode::UsbCanNode(void)
 		this->_service_threads.create_thread(boost::bind((std::size_t (boost::asio::io_service::*)())&boost::asio::io_service::run, _io));
 	}
 
-	this->can_tx_sub = _nh.subscribe<can_msgs::CanFrame>("/can_tx", 10, &UsbCanNode::canTxCallback, this);
+	this->can_tx_sub = _nh.subscribe<can_msgs::CanFrame>("/can_tx", 10, &usb_can_bridge::canTxCallback, this);
 	this->can_rx_pub = _nh.advertise<can_msgs::CanFrame>("/can_rx", 1);
 
-	//this->can_rx_thread = new std::thread(&UsbCanNode::canRxTask, this);
+	//this->can_rx_thread = new std::thread(&usb_can_bridge::canRxTask, this);
 }
 
-bool UsbCanNode::waitForStatus(void)
+bool usb_can_bridge::waitForStatus(void)
 {
 	while(!this->_status_changed)
 	{
@@ -172,7 +170,7 @@ bool UsbCanNode::waitForStatus(void)
 	return false;
 }
 
-bool UsbCanNode::Initialize(void)
+bool usb_can_bridge::Initialize(void)
 {
 	if(!this->_port->is_open())
 	{
@@ -206,7 +204,7 @@ bool UsbCanNode::Initialize(void)
 	return false;
 }
 
-bool UsbCanNode::Open(void)
+bool usb_can_bridge::Open(void)
 {
 	boost::system::error_code _error;
 
@@ -239,7 +237,7 @@ bool UsbCanNode::Open(void)
 	return false;
 }
 
-bool UsbCanNode::Close(void)
+bool usb_can_bridge::Close(void)
 {
 	boost::system::error_code _error;
 	if(!this->_port->is_open())
@@ -265,7 +263,7 @@ bool UsbCanNode::Close(void)
 	return false;
 }
 
-bool UsbCanNode::Start(void)
+void usb_can_bridge::async_open(void)
 {
 	if(!this->_port->is_open())
 	{
@@ -287,7 +285,7 @@ bool UsbCanNode::Start(void)
 	return false;
 }
 
-bool UsbCanNode::Stop(void)
+void usb_can_bridge::async_close(void)
 {
 	if(!this->_port->is_open())
 	{
@@ -306,7 +304,7 @@ bool UsbCanNode::Stop(void)
 	return result;
 }
 
-bool UsbCanNode::SetBaudRate(const int baud)
+void usb_can_bridge::async_set_baud_rate(const unsigned int baud)
 {
 	//string brspec;
 
@@ -375,7 +373,7 @@ bool UsbCanNode::SetBaudRate(const int baud)
 	return false;
 }
 
-void UsbCanNode::processRxFrame(const uint8_t * const str_buf, const uint16_t str_len)
+void usb_can_bridge::processRxFrame(const uint8_t * const str_buf, const uint16_t str_len)
 {
 	static std::mutex m;
 	std::lock_guard<std::mutex> _lock(m);
@@ -466,7 +464,7 @@ void UsbCanNode::processRxFrame(const uint8_t * const str_buf, const uint16_t st
 	//ROS_INFO("frame received");
 }
 
-void UsbCanNode::canTxCallback(const can_msgs::CanFrame::ConstPtr &msg)
+void usb_can_bridge::canTxCallback(const can_msgs::CanFrame::ConstPtr &msg)
 {
 	std::lock_guard<std::mutex> _lock(this->_mtx);
 
@@ -536,10 +534,10 @@ void UsbCanNode::canTxCallback(const can_msgs::CanFrame::ConstPtr &msg)
 	//this->_tx_queue->push((string)str_buf);
 
 	//this->_port->write_some(buffer(str_buf, i));
-	this->_io_strand->post(boost::bind(&UsbCanNode::write, this, str_buf));
+	this->_io_strand->post(boost::bind(&UsbCanBridge::write, this, str_buf));
 }
 
-void UsbCanNode::write(const string& str)
+void usb_can_bridge::write(const string& str)
 {
 	this->_tx_queue->push(str);
 
@@ -551,12 +549,12 @@ void UsbCanNode::write(const string& str)
 	this->write();
 }
 
-void UsbCanNode::write(void)
+void usb_can_bridge::write(void)
 {
-	this->_port->async_write_some(this->_tx_queue->front(), boost::bind(&UsbCanNode::writeHandler, this));
+	this->_port->async_write_some(this->_tx_queue->front(), boost::bind(&usb_can_bridge::writeHandler, this));
 }
 
-void UsbCanNode::writeHandler(const boost::system::error_code& error, std::size_t bytes_transferred)
+void usb_can_bridge::writeHandler(const boost::system::error_code& error, std::size_t bytes_transferred)
 {
 	this->_tx_queue->pop();
 
@@ -571,7 +569,7 @@ void UsbCanNode::writeHandler(const boost::system::error_code& error, std::size_
 	}
 }
 
-void UsbCanNode::receive(void)
+void usb_can_bridge::receive(void)
 {
 	//this->_io->reset();
 
@@ -579,10 +577,10 @@ void UsbCanNode::receive(void)
 			*_port,
 			_receive_buffer,
 			boost::asio::transfer_at_least(1), // receive at least one byte
-			boost::bind(&UsbCanNode::onReceive, this, boost::asio::placeholders::error));
+			boost::bind(&usb_can_bridge::onReceive, this, boost::asio::placeholders::error));
 }
 
-void UsbCanNode::onReceive(const boost::system::error_code& error)
+void usb_can_bridge::onReceive(const boost::system::error_code& error)
 {
 	const std::string data(boost::asio::buffer_cast<const char*>(_receive_buffer.data()), _receive_buffer.size());
 	_receive_buffer.consume(_receive_buffer.size());
@@ -629,7 +627,7 @@ void UsbCanNode::onReceive(const boost::system::error_code& error)
 	receive();
 }
 
-void UsbCanNode::Dispose(void)
+void usb_can_bridge::Dispose(void)
 {
 	//std::lock_guard<std::mutex> _lock(this->_mtx);
 
@@ -639,14 +637,14 @@ void UsbCanNode::Dispose(void)
 	//this->_service_thread->do_try_join_until(timespec(1000));
 }
 
-UsbCanNode *usbCanNode = nullptr;
+UsbCanBridge *usbCanNode = nullptr;
 
 int main(int argc, char** argv)
 {
 	ros::init(argc, argv, "usb_can_node");
 	ROS_INFO("usb_can_node has started.");
 
-	usbCanNode = new UsbCanNode();
+	usbCanNode = new usb_can_bridge();
 
 	ROS_DEBUG("opening serial port...");
 	if(usbCanNode->Open())
@@ -693,6 +691,26 @@ int main(int argc, char** argv)
 
 	ROS_INFO("usb_can_node has been terminated.");
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
