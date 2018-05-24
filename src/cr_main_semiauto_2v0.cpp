@@ -30,9 +30,8 @@ enum class CRControllerStatus : uint16_t
 	motion_cplt,					// motion completed; transitioning
 
 	pp_pickingup,					// picking up shuttles at a PP
-	dp1_delivery_tz1,				// delivering a shuttle at the DP1 for TZ1
-	dp1_delivery_tz2,				// delivering a shuttle at the DP1 for TZ2
-	dp2_delivery,					// delivering a shuttle at the DP2
+	delivering_right,				// delivering a shuttle
+	delivering_left,				// delivering a shuttle
 };
 
 enum class CRControllerCommands : uint16_t
@@ -42,15 +41,17 @@ enum class CRControllerCommands : uint16_t
 	standby,						// stand-by at SZ
 
 	pp_pickup,						// pick up shuttles at a PP
-	dp1_deliver,					// give TR a shuttle at DP1 for TZ1 and TZ2
-	dp2_deliver,					// give TR a shuttle at DP2 for TZ3
+
+	deliver_right,
+	deliver_left,
 
 	sz_to_pp1,						// move from SZ  to PP1
+	sz_to_pp2,						// move from SZ  to PP2
 	pp1_to_dp1,						// move from PP1 to DP1
 	pp2_to_dp2,						// move from PP2 to DP2
 	dp1_to_pp2,						// move from DP1 to PP2
 
-	//disarm,
+	disarm,
 	delay,
 
 	segno,
@@ -64,15 +65,14 @@ enum class CarrierStatus : uint16_t
 
 	sensing				= 0x0020,
 
-	//all_unchucked		= 0x0010,
-	//_1_chucked		= 0x0011,	// wtf
-	//_2_chucked		= 0x0012,
-	//all_chucked		= 0x0013,
+	//operational			= 0x0010,
+	disarmed			= 0x0010,
+	pickedup			= 0x0011,
+	delivered_r			= 0x0012,
+	delivered_l			= 0x0013,
 
-	operational			= 0x0010,
-
-	delivering_1		= 0x0081,
-	delivering_2		= 0x0082,
+	delivering_r		= 0x0081,
+	delivering_l		= 0x0082,
 };
 
 enum class CarrierCommands : uint16_t
@@ -80,18 +80,11 @@ enum class CarrierCommands : uint16_t
 	shutdown_cmd		= 0x0000,
 	reset_cmd			= 0x0001,
 
-//	chuck_1_cmd			= 0x0011,
-//	chuck_2_cmd			= 0x0012,
-	chuck_all_cmd		= 0x0013,
+	disarm_cmd			= 0x0010,
+	pickup_cmd			= 0x0011,
 
-//	unchuck_1_cmd		= 0x0021,
-//	unchuck_2_cmd		= 0x0022,
-	unchuck_all_cmd		= 0x0023,
-
-	deliver_1_cmd		= 0x0031,
-	deliver_2_cmd		= 0x0032,
-
-	sense_cmd			= 0x0020,
+	deliver_r_cmd		= 0x0020,
+	deliver_l_cmd		= 0x0021,
 };
 
 enum class BaseStatus : uint16_t
@@ -173,11 +166,10 @@ private:
 	void restart(void);
 
 	void amt(void);
-	void unchuck_all(void);
-	void chuck_all(void);
-	//void arm_ready(void);
-	void deliver_1(void);
-	void deliver_2(void);
+	void disarm(void);
+	void pickup(void);
+	void deliver_r(void);
+	void deliver_l(void);
 
 	void set_pose(geometry_msgs::Pose pose);
 	void publish_path(nav_msgs::Path path);
@@ -193,7 +185,8 @@ private:
 	bool _abort_pressed = false;
 	//bool _is_moving = false;
 	//bool _is_throwing = false;
-	//bool _is_receiving = false;
+	bool _delivery_cplt_right = false;
+	bool _delivery_cplt_left = false;
 	bool _is_manual_enabled = false;
 	bool _goal_reached = false;
 	bool _has_base_restarted = false;
@@ -205,7 +198,8 @@ private:
 		_abort_pressed = false;
 		//_is_moving = false;
 		//_is_throwing = false;
-		//_is_receiving = false;
+		_delivery_cplt_right = false;
+		_delivery_cplt_left = false;
 		_is_manual_enabled = false;
 		_goal_reached = false;
 		_has_base_restarted = false;
@@ -335,20 +329,25 @@ CrMain::CrMain(void)
 
 #ifdef FULL_OP
 	// pickup at pp1
+	this->command_list.push_back(CRControllerCommands::disarm);
 	this->command_list.push_back(CRControllerCommands::sz_to_pp1);
 	this->command_list.push_back(CRControllerCommands::pp_pickup);
 
-	// deliver at dp1 for tz1 and tz2
+	// deliver at dp1 for tz1
 	this->command_list.push_back(CRControllerCommands::pp1_to_dp1);
-	this->command_list.push_back(CRControllerCommands::dp1_deliver);
+	this->command_list.push_back(CRControllerCommands::deliver_right);
+
+	this->command_list.push_back(CRControllerCommands::deliver_left);
 
 	// pickup at pp2
+	this->command_list.push_back(CRControllerCommands::disarm);
 	this->command_list.push_back(CRControllerCommands::dp1_to_pp2);
 	this->command_list.push_back(CRControllerCommands::pp_pickup);
 
 	// deliver at dp2 for tz3
 	this->command_list.push_back(CRControllerCommands::pp2_to_dp2);
-	this->command_list.push_back(CRControllerCommands::dp1_deliver);
+	this->command_list.push_back(CRControllerCommands::deliver_right);
+	this->command_list.push_back(CRControllerCommands::deliver_left);
 	this->command_list.push_back(CRControllerCommands::pp_pickup);
 	this->command_list.push_back(CRControllerCommands::shutdown);
 #endif
@@ -403,6 +402,24 @@ void CrMain::handStatusCallback(const std_msgs::UInt16::ConstPtr& msg)
 
 	case CarrierStatus::reset:
 		break;
+
+	case CarrierStatus::delivering_r:
+		this->_delivery_cplt_right = false;
+		break;
+
+	case CarrierStatus::delivered_r:
+		this->_delivery_cplt_right = true;
+		break;
+
+	case CarrierStatus::delivering_l:
+		this->_delivery_cplt_left = false;
+		break;
+
+	case CarrierStatus::delivered_l:
+		this->_delivery_cplt_left = true;
+		break;
+
+
 	default:
 		break;
 	}
@@ -640,6 +657,8 @@ void CrMain::publish_path(geometry_msgs::Pose from, geometry_msgs::Pose via, geo
 
 void CrMain::control_timer_callback(const ros::TimerEvent& event)
 {
+	this->publish_path(Coordinates::GetInstance()->get_cr_path_pp1_to_dp1());
+
 	if(this->command_list.size() <= this->currentCommandIndex)
 	{
 		this->shutdown();
@@ -719,6 +738,7 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 
 				clear_flags();
 				this->_status = CRControllerStatus::motion_cplt;
+				//this->_status = CRControllerStatus::pp_pickingup;
 
 				this->currentCommandIndex++;
 				ROS_INFO("goal reached : pp1");
@@ -726,12 +746,14 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 		}
 		else
 		{
-			this->publish_path(Coordinates::GetInstance()->get_cr_sz(), Coordinates::GetInstance()->get_cr_pp1());
+			this->publish_path(Coordinates::GetInstance()->get_cr_sz(), Coordinates::GetInstance()->get_cr_wp0(), Coordinates::GetInstance()->get_cr_pp1());
 
 			clear_flags();
 			this->_status = CRControllerStatus::moving;
 
-			this->unchuck_all();
+			this->disarm();
+
+			ROS_INFO("moving : sz -> pp1");
 		}
 	}
 	else if(currentCommand == CRControllerCommands::pp1_to_dp1)
@@ -749,35 +771,12 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 		}
 		else
 		{
-			nav_msgs::Path path_msg;
-			path_msg.poses.clear();
-
-			geometry_msgs::PoseStamped _pose;
-
-			path_msg.header.frame_id = "map";
-			path_msg.header.stamp = ros::Time::now();
-
-			_pose.header.frame_id = "map";
-			_pose.header.stamp = ros::Time::now();
-			_pose.pose = Coordinates::GetInstance()->get_cr_pp1();
-			path_msg.poses.push_back(_pose);
-
-			_pose.pose = Coordinates::GetInstance()->get_cr_wp1_1();
-			path_msg.poses.push_back(_pose);
-
-			_pose.pose = Coordinates::GetInstance()->get_cr_wp1_2();
-			path_msg.poses.push_back(_pose);
-
-			_pose.pose = Coordinates::GetInstance()->get_cr_wp1_3();
-			path_msg.poses.push_back(_pose);
-
-			_pose.pose = Coordinates::GetInstance()->get_cr_dp1();
-			path_msg.poses.push_back(_pose);
-
-			this->publish_path(path_msg);
+			this->publish_path(Coordinates::GetInstance()->get_cr_path_pp1_to_dp1());
 
 			clear_flags();
 			this->_status = CRControllerStatus::moving;
+
+			ROS_INFO("moving : pp1 -> dp1");
 		}
 	}
 	else if(currentCommand == CRControllerCommands::pp2_to_dp2)
@@ -824,6 +823,8 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 
 			clear_flags();
 			this->_status = CRControllerStatus::moving;
+
+			ROS_INFO("moving : pp2 -> dp2");
 		}
 	}
 	else if(currentCommand == CRControllerCommands::dp1_to_pp2)
@@ -853,34 +854,6 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 		}
 		else
 		{
-			geometry_msgs::Pose _dp1_tz2;
-			geometry_msgs::Pose _tmp_wp1;
-			geometry_msgs::Pose _tmp_wp2;
-			tf::StampedTransform base_link;
-
-			try
-			{
-				this->_tflistener.waitForTransform("/map", "/base_link", ros::Time(0), ros::Duration(0.1));
-				this->_tflistener.lookupTransform("/map", "/base_link", ros::Time(0), base_link);
-			}
-			catch(...)
-			{
-				return;
-			}
-
-			_dp1_tz2.position.x = base_link.getOrigin().x();
-			_dp1_tz2.position.y = base_link.getOrigin().y();
-			_dp1_tz2.orientation = tf::createQuaternionMsgFromYaw(0.0);
-
-			_tmp_wp1.position.x = _dp1_tz2.position.x - 0.500;
-			_tmp_wp1.position.y = _dp1_tz2.position.y;
-			_tmp_wp1.orientation = _dp1_tz2.orientation;
-
-			_tmp_wp2.position.x = _dp1_tz2.position.x - 0.200;
-			_tmp_wp2.position.y = _dp1_tz2.position.y + 2.000;
-			_tmp_wp2.orientation = _dp1_tz2.orientation;
-
-
 			nav_msgs::Path path_msg;
 			path_msg.poses.clear();
 
@@ -891,13 +864,10 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 
 			_pose.header.frame_id = "map";
 			_pose.header.stamp = ros::Time::now();
-			_pose.pose = _dp1_tz2;
+			_pose.pose = Coordinates::GetInstance()->get_cr_dp1();
 			path_msg.poses.push_back(_pose);
 
-			_pose.pose = _tmp_wp1;
-			path_msg.poses.push_back(_pose);
-
-			_pose.pose = _tmp_wp2;
+			_pose.pose = Coordinates::GetInstance()->get_cr_wp2_0();
 			path_msg.poses.push_back(_pose);
 
 			_pose.pose = Coordinates::GetInstance()->get_cr_wp2_1();
@@ -913,6 +883,8 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 
 			clear_flags();
 			this->_status = CRControllerStatus::moving;
+
+			ROS_INFO("moving : dp1 -> pp2");
 		}
 	}
 	else if(currentCommand == CRControllerCommands::pp_pickup)
@@ -921,7 +893,7 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 		{
 			if(this->_next_pressed)
 			{
-				this->chuck_all();
+				this->pickup();
 
 				clear_flags();
 				this->_status = CRControllerStatus::motion_cplt;
@@ -935,81 +907,63 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 			clear_flags();
 			this->_is_manual_enabled = true;
 			this->_status = CRControllerStatus::pp_pickingup;
+			ROS_INFO("picking up shuttles.");
 		}
 
 		this->amt();
 	}
-	else if(currentCommand == CRControllerCommands::dp1_deliver)
+	else if(currentCommand == CRControllerCommands::deliver_right)
 	{
-		if(this->_status == CRControllerStatus::dp1_delivery_tz1)
+		if(this->_status == CRControllerStatus::delivering_right)
 		{
-			if(this->_next_pressed)
+			if(this->_delivery_cplt_right)
 			{
-				this->deliver_1();
-
-				geometry_msgs::Pose _dp1_tz1;
-				geometry_msgs::Pose _dp1_tz2;
-				tf::StampedTransform base_link;
-
-				try
-				{
-					this->_tflistener.waitForTransform("/map", "/base_link", ros::Time(0), ros::Duration(0.1));
-					this->_tflistener.lookupTransform("/map", "/base_link", ros::Time(0), base_link);
-				}
-				catch(...)
-				{
-					return;
-				}
-
-				_dp1_tz1.position.x = base_link.getOrigin().x();
-				_dp1_tz1.position.y = base_link.getOrigin().y();
-				_dp1_tz1.orientation = tf::createQuaternionMsgFromYaw(0.0);
-
-				_dp1_tz2.position.x = _dp1_tz1.position.x;
-				_dp1_tz2.position.y = _dp1_tz1.position.y - 0.300 - 0.025;	// tolerance?
-				_dp1_tz2.orientation = _dp1_tz1.orientation;
-
-				this->publish_path(_dp1_tz1, _dp1_tz2);
+				// delivery completed
 
 				clear_flags();
-				this->_status = CRControllerStatus::moving;
-
-				// do not increment the command index
-
-				ROS_INFO("shuttle delivered: dp1_tz1");
-			}
-		}
-		else if(this->_status == CRControllerStatus::moving)
-		{
-			if(this->_goal_reached)
-			{
-				clear_flags();
-				this->_is_manual_enabled = true;
-				this->_status = CRControllerStatus::dp1_delivery_tz2;
-
-				// do not increment the command index
-
-				ROS_INFO("goal reached : dp1_tz2");
-			}
-		}
-		else if(this->_status == CRControllerStatus::dp1_delivery_tz2)
-		{
-			if(this->_next_pressed)
-			{
-				this->deliver_2();
-
-				clear_flags();
-				this->_status = CRControllerStatus::motion_cplt;
 
 				this->currentCommandIndex++;
-				ROS_INFO("shuttle delivered: dp1_tz2");
+				ROS_INFO("shuttle delivered: right");
 			}
 		}
 		else
 		{
 			clear_flags();
 			this->_is_manual_enabled = true;
-			this->_status = CRControllerStatus::dp1_delivery_tz1;
+			this->_status = CRControllerStatus::delivering_right;
+
+			this->deliver_r();
+			this->_delivery_cplt_right = false;
+
+			ROS_INFO("shuttle delivering: right");
+		}
+
+		this->amt();
+	}
+	else if(currentCommand == CRControllerCommands::deliver_left)
+	{
+		if(this->_status == CRControllerStatus::delivering_left)
+		{
+			if(this->_delivery_cplt_left)
+			{
+				// delivery completed
+
+				clear_flags();
+
+				this->currentCommandIndex++;
+				ROS_INFO("shuttle delivered: left");
+			}
+		}
+		else
+		{
+			clear_flags();
+			this->_is_manual_enabled = true;
+			this->_status = CRControllerStatus::delivering_left;
+
+			this->deliver_l();
+			this->_delivery_cplt_left = false;
+
+			ROS_INFO("shuttle delivering: left");
 		}
 
 		this->amt();
@@ -1026,6 +980,11 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 			this->_delay_s = 0;
 			this->currentCommandIndex++;
 		}
+	}
+	else if(currentCommand == CRControllerCommands::disarm)
+	{
+		this->disarm();
+		this->currentCommandIndex++;
 	}
 	else if(currentCommand == CRControllerCommands::segno)
 	{
@@ -1082,31 +1041,31 @@ void CrMain::amt(void)
 	this->publish_path(moving_target);
 }
 
-void CrMain::unchuck_all(void)
+void CrMain::disarm(void)
 {
 	// unchuck all
-	hand_cmd_msg.data = (uint16_t)CarrierCommands::unchuck_all_cmd;
+	hand_cmd_msg.data = (uint16_t)CarrierCommands::disarm_cmd;
 	hand_cmd_pub.publish(hand_cmd_msg);
 }
 
-void CrMain::chuck_all(void)
+void CrMain::pickup(void)
 {
 	// chuck all
-	hand_cmd_msg.data = (uint16_t)CarrierCommands::chuck_all_cmd;
+	hand_cmd_msg.data = (uint16_t)CarrierCommands::pickup_cmd;
 	hand_cmd_pub.publish(hand_cmd_msg);
 }
 
-void CrMain::deliver_1(void)
+void CrMain::deliver_r(void)
 {
 	// deliver 1
-	hand_cmd_msg.data = (uint16_t)CarrierCommands::deliver_1_cmd;
+	hand_cmd_msg.data = (uint16_t)CarrierCommands::deliver_r_cmd;
 	hand_cmd_pub.publish(hand_cmd_msg);
 }
 
-void CrMain::deliver_2(void)
+void CrMain::deliver_l(void)
 {
 	// deliver 2
-	hand_cmd_msg.data = (uint16_t)CarrierCommands::deliver_2_cmd;
+	hand_cmd_msg.data = (uint16_t)CarrierCommands::deliver_l_cmd;
 	hand_cmd_pub.publish(hand_cmd_msg);
 }
 

@@ -1,5 +1,7 @@
 <launch>
-<rosparam file="$(find nhk2018_main_ros)/param/joy_assign_wireless.yaml" command="load" />
+
+    <!-- import joy button/axis mapping settings -->
+    <rosparam file="$(find nhk2018_main_ros)/param/joy_assign_wireless.yaml" command="load" />
 
     <!-- arg name="use_sim_time" default="false"/>
     <param name="use_sim_time" value="$(arg use_sim_time" /-->
