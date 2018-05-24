@@ -12,10 +12,7 @@
     <!-- 2000 for tz1 -->
     
     <node pkg="nhk2018_main_ros" type="tr_main_auto_2v0" name="main" output="screen">
-        <!--
-        <rosparam param="unchuck_thres">[540, 540, 200]</rosparam>
-        -->
-        <rosparam param="unchuck_thres">[280, 280, 240]</rosparam>
+        <rosparam param="unchuck_thres">[280, 270, 240]</rosparam>
         <param name="op_mode" value="unittest" />
     </node>
     <!-- 540 くらいが実用的な限界です -->

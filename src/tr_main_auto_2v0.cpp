@@ -47,11 +47,15 @@ enum class ControllerCommands : uint16_t
 	set_tz3,
 
 	sz_to_tz1,						// move from SZ  to TZ1
-	sz_to_tz2,						// move from SZ  to TZ2
+	sz_to_dp2,						// move from SZ  to DP2
 
 	tz1_to_tz2,						// move from TZ1 to TZ2
-	tz2_to_tz3,						// move from TZ2 to TZ3
-	tz3_to_tz2,						// move from TZ3 to TZ2
+
+	dp2_to_tz2,						// move from DP2 to TZ2
+	dp2_to_tz3,						// move from DP2 to TZ3
+
+	tz2_to_dp2,						// move from TZ2 to DP2
+	tz3_to_dp2,						// move from TZ3 to DP2
 
 	set_delay_250ms,
 	set_delay_500ms,
@@ -241,10 +245,10 @@ const std::vector<ControllerCommands> TrMain::tz1_op_commands
 		// receive at tz1
 		ControllerCommands::sz_to_tz1,
 		ControllerCommands::dp_receive,
-		ControllerCommands::set_delay_500ms,
-		ControllerCommands::delay,
-		ControllerCommands::set_delay_500ms,
-		ControllerCommands::delay,
+		//ControllerCommands::set_delay_500ms,
+		//ControllerCommands::delay,
+		//ControllerCommands::set_delay_500ms,
+		//ControllerCommands::delay,
 
 		// throw at tz1
 		ControllerCommands::set_tz1,
@@ -266,6 +270,8 @@ const std::vector<ControllerCommands> TrMain::tz1_op_commands
 		ControllerCommands::tz_throw,
 		ControllerCommands::disarm,
 
+		ControllerCommands::tz2_to_dp2,
+
 		// repeat from here
 		ControllerCommands::segno,
 
@@ -277,12 +283,12 @@ const std::vector<ControllerCommands> TrMain::tz1_op_commands
 		ControllerCommands::delay,
 
 		// throw at tz3
-		ControllerCommands::tz2_to_tz3,
+		ControllerCommands::dp2_to_tz3,
 		ControllerCommands::set_tz3,
 		ControllerCommands::tz_throw,
 		ControllerCommands::disarm,
 
-		ControllerCommands::tz3_to_tz2,
+		ControllerCommands::tz3_to_dp2,
 
 		// repeat forever
 		ControllerCommands::dal_segno
@@ -295,20 +301,20 @@ const std::vector<ControllerCommands> TrMain::tz2_op_commands
 		ControllerCommands::standby,
 
 		// receive at tz2
-		ControllerCommands::sz_to_tz2,
+		ControllerCommands::sz_to_dp2,
 		ControllerCommands::dp_receive,
-		ControllerCommands::set_delay_500ms,
-		ControllerCommands::delay,
 		ControllerCommands::set_delay_500ms,
 		ControllerCommands::delay,
 		ControllerCommands::set_delay_500ms,
 		ControllerCommands::delay,
 
 		// throw at tz2
-		ControllerCommands::tz1_to_tz2,
+		ControllerCommands::dp2_to_tz2,
 		ControllerCommands::set_tz2,
 		ControllerCommands::tz_throw,
 		ControllerCommands::disarm,
+
+		ControllerCommands::tz2_to_dp2,
 
 		// repeat from here
 		ControllerCommands::segno,
@@ -321,12 +327,12 @@ const std::vector<ControllerCommands> TrMain::tz2_op_commands
 		ControllerCommands::delay,
 
 		// throw at tz3
-		ControllerCommands::tz2_to_tz3,
+		ControllerCommands::dp2_to_tz3,
 		ControllerCommands::set_tz3,
 		ControllerCommands::tz_throw,
 		ControllerCommands::disarm,
 
-		ControllerCommands::tz3_to_tz2,
+		ControllerCommands::tz3_to_dp2,
 
 		// repeat forever
 		ControllerCommands::dal_segno
@@ -339,7 +345,7 @@ const std::vector<ControllerCommands> TrMain::tz3_op_commands
 		ControllerCommands::standby,
 
 		// receive at tz2
-		ControllerCommands::sz_to_tz2,
+		ControllerCommands::sz_to_dp2,
 
 		// repeat from here
 		ControllerCommands::segno,
@@ -352,12 +358,12 @@ const std::vector<ControllerCommands> TrMain::tz3_op_commands
 		ControllerCommands::delay,
 
 		// throw at tz3
-		ControllerCommands::tz2_to_tz3,
+		ControllerCommands::dp2_to_tz3,
 		ControllerCommands::set_tz3,
 		ControllerCommands::tz_throw,
 		ControllerCommands::disarm,
 
-		ControllerCommands::tz3_to_tz2,
+		ControllerCommands::tz3_to_dp2,
 
 		// repeat forever
 		ControllerCommands::dal_segno
@@ -529,6 +535,11 @@ void TrMain::launcherStatusCallback(const std_msgs::UInt16::ConstPtr& msg)
 		this->_armed = true;
 		break;
 
+	case LauncherStatus::launching:
+		this->_armed = false;
+		this->_launch_completed = false;
+		break;
+
 	case LauncherStatus::launch_cplt:
 		this->_launch_completed = true;
 		break;
@@ -543,7 +554,7 @@ void TrMain::launcherStatusCallback(const std_msgs::UInt16::ConstPtr& msg)
 
 void TrMain::baseConfCallback(const std_msgs::UInt8::ConstPtr& msg)
 {
-	if(this->currentCommandIndex != -1)
+	if(this->currentCommandIndex != -1 && this->currentCommandIndex != 0)
 	{
 		return;
 	}
@@ -559,22 +570,27 @@ void TrMain::baseConfCallback(const std_msgs::UInt8::ConstPtr& msg)
 		}
 		else if(this->_op_mode == OpMode::tz2_op)
 		{
+			this->command_list = &TrMain::tz2_op_commands;
 			ROS_INFO("operation mode set to tz2_op.");
 		}
 		else if(this->_op_mode == OpMode::tz3_op)
 		{
+			this->command_list = &TrMain::tz3_op_commands;
 			ROS_INFO("operation mode set to tz3_op.");
 		}
 		else if(this->_op_mode == OpMode::tz1_ut)
 		{
+			this->command_list = &TrMain::tz1_ut_commands;
 			ROS_INFO("operation mode set to tz1_ut.");
 		}
 		else if(this->_op_mode == OpMode::tz2_ut)
 		{
+			this->command_list = &TrMain::tz2_ut_commands;
 			ROS_INFO("operation mode set to tz2_ut.");
 		}
 		else if(this->_op_mode == OpMode::tz3_ut)
 		{
+			this->command_list = &TrMain::tz3_ut_commands;
 			ROS_INFO("operation mode set to tz3_ut.");
 		}
 	}
@@ -821,9 +837,11 @@ void TrMain::control_timer_callback(const ros::TimerEvent& event)
 
 			this->_goal_reached = false;
 			this->_is_moving = true;
+
+			ROS_INFO("moving : sz -> tz1");
 		}
 	}
-	else if(currentCommand == ControllerCommands::sz_to_tz2)
+	else if(currentCommand == ControllerCommands::sz_to_dp2)
 	{
 		if(this->_is_moving)
 		{
@@ -837,10 +855,12 @@ void TrMain::control_timer_callback(const ros::TimerEvent& event)
 		}
 		else
 		{
-			this->publish_path(Coordinates::GetInstance()->get_tr_sz(), Coordinates::GetInstance()->get_tr_wp2_2(), Coordinates::GetInstance()->get_tr_tz2());
+			this->publish_path(Coordinates::GetInstance()->get_tr_sz(), Coordinates::GetInstance()->get_tr_wp2_2(), Coordinates::GetInstance()->get_tr_dp2());
 
 			this->_goal_reached = false;
 			this->_is_moving = true;
+
+			ROS_INFO("moving : sz -> dp2");
 		}
 	}
 	else if(currentCommand == ControllerCommands::tz1_to_tz2)
@@ -885,7 +905,29 @@ void TrMain::control_timer_callback(const ros::TimerEvent& event)
 			this->_is_moving = true;
 		}
 	}
-	else if(currentCommand == ControllerCommands::tz2_to_tz3)
+	else if(currentCommand == ControllerCommands::dp2_to_tz2)
+	{
+		if(this->_is_moving)
+		{
+			if(this->_goal_reached)
+			{
+				this->_is_moving = false;
+				this->_goal_reached = false;
+				this->currentCommandIndex++;
+				ROS_INFO("goal reached : tz2");
+			}
+		}
+		else
+		{
+			this->publish_path(Coordinates::GetInstance()->get_tr_dp2(), Coordinates::GetInstance()->get_tr_tz2());
+
+			this->_goal_reached = false;
+			this->_is_moving = true;
+
+			ROS_INFO("moving : dp2 -> tz2");
+		}
+	}
+	else if(currentCommand == ControllerCommands::dp2_to_tz3)
 	{
 		if(this->_is_moving)
 		{
@@ -899,13 +941,15 @@ void TrMain::control_timer_callback(const ros::TimerEvent& event)
 		}
 		else
 		{
-			this->publish_path(Coordinates::GetInstance()->get_tr_tz2(), Coordinates::GetInstance()->get_tr_tz3());
+			this->publish_path(Coordinates::GetInstance()->get_tr_dp2(), Coordinates::GetInstance()->get_tr_wp3_1(), Coordinates::GetInstance()->get_tr_tz3());
 
 			this->_goal_reached = false;
 			this->_is_moving = true;
+
+			ROS_INFO("moving : dp2 -> tz3");
 		}
 	}
-	else if(currentCommand == ControllerCommands::tz3_to_tz2)
+	else if(currentCommand == ControllerCommands::tz2_to_dp2)
 	{
 		if(this->_is_moving)
 		{
@@ -919,10 +963,34 @@ void TrMain::control_timer_callback(const ros::TimerEvent& event)
 		}
 		else
 		{
-			this->publish_path(Coordinates::GetInstance()->get_tr_tz3(), Coordinates::GetInstance()->get_tr_tz2());
+			this->publish_path(Coordinates::GetInstance()->get_tr_tz2(), Coordinates::GetInstance()->get_tr_dp2());
 
 			this->_goal_reached = false;
 			this->_is_moving = true;
+
+			ROS_INFO("moving : tz2 -> dp2");
+		}
+	}
+	else if(currentCommand == ControllerCommands::tz3_to_dp2)
+	{
+		if(this->_is_moving)
+		{
+			if(this->_goal_reached)
+			{
+				this->_is_moving = false;
+				this->_goal_reached = false;
+				this->currentCommandIndex++;
+				ROS_INFO("goal reached : dp2");
+			}
+		}
+		else
+		{
+			this->publish_path(Coordinates::GetInstance()->get_tr_tz3(), Coordinates::GetInstance()->get_tr_wp3_2(), Coordinates::GetInstance()->get_tr_dp2());
+
+			this->_goal_reached = false;
+			this->_is_moving = true;
+
+			ROS_INFO("moving : tz3 -> dp2");
 		}
 	}
 	else if(currentCommand == ControllerCommands::dp_receive)
@@ -978,18 +1046,27 @@ void TrMain::control_timer_callback(const ros::TimerEvent& event)
 	}
 	else if(currentCommand == ControllerCommands::set_tz1)
 	{
-		this->set_thres(this->launcher_thresholds[0]);
-		this->currentCommandIndex++;
+		if(this->_armed)
+		{
+			this->set_thres(this->launcher_thresholds[0]);
+			this->currentCommandIndex++;
+		}
 	}
 	else if(currentCommand == ControllerCommands::set_tz2)
 	{
-		this->set_thres(this->launcher_thresholds[1]);
-		this->currentCommandIndex++;
+		if(this->_armed)
+		{
+			this->set_thres(this->launcher_thresholds[1]);
+			this->currentCommandIndex++;
+		}
 	}
 	else if(currentCommand == ControllerCommands::set_tz3)
 	{
-		this->set_thres(this->launcher_thresholds[2]);
-		this->currentCommandIndex++;
+		if(this->_armed)
+		{
+			this->set_thres(this->launcher_thresholds[2]);
+			this->currentCommandIndex++;
+		}
 	}
 	else if(currentCommand == ControllerCommands::set_delay_250ms)
 	{

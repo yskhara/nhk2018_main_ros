@@ -62,7 +62,7 @@ private:
 	void baseCmdCallback(const std_msgs::UInt16::ConstPtr& msg);
 	void baseMotorCmdVelCallback(const std_msgs::Int16MultiArray::ConstPtr& msg);
 
-	void launcherCmdCallback(const std_msgs::UInt16::ConstPtr& msg);
+	void handCmdCallback(const std_msgs::UInt16::ConstPtr& msg);
 
 	void canRxCallback(const can_msgs::CanFrame::ConstPtr &msg);
 
@@ -73,8 +73,8 @@ private:
 	ros::Publisher _can_tx_pub;
 	ros::Subscriber _can_rx_sub;
 
-	ros::Publisher  _launcher_status_pub;
-	ros::Subscriber _launcher_cmd_sub;
+	ros::Publisher  _hand_status_pub;
+	ros::Subscriber _hand_cmd_sub;
 
 
 	ros::Publisher	_base_status_pub;
@@ -93,8 +93,8 @@ private:
 	static constexpr uint16_t id_baseOdomY        = 0x206;
 	static constexpr uint16_t id_baseOdomYaw      = 0x207;
 
-	static constexpr uint16_t id_launcherStatus	= 0x300;
-	static constexpr uint16_t id_launcherCmd	= 0x301;
+	static constexpr uint16_t id_handStatus	= 0x300;
+	static constexpr uint16_t id_handCmd	= 0x301;
 };
 
 CrCanNode::CrCanNode(void)
@@ -102,8 +102,8 @@ CrCanNode::CrCanNode(void)
 	_can_tx_pub				= _nh.advertise<can_msgs::CanFrame>("can_tx", 10);
 	_can_rx_sub				= _nh.subscribe<can_msgs::CanFrame>("can_rx", 10, &CrCanNode::canRxCallback, this);
 
-	_launcher_status_pub	= _nh.advertise<std_msgs::UInt16>("launcher/status", 10);
-	_launcher_cmd_sub		= _nh.subscribe<std_msgs::UInt16>("launcher/cmd", 10, &CrCanNode::launcherCmdCallback, this);
+	_hand_status_pub	= _nh.advertise<std_msgs::UInt16>("hand/status", 10);
+	_hand_cmd_sub		= _nh.subscribe<std_msgs::UInt16>("hand/cmd", 10, &CrCanNode::handCmdCallback, this);
 
 	_base_status_pub		= _nh.advertise<std_msgs::UInt16>("base/status", 10);
 	_base_cmd_sub			= _nh.subscribe<std_msgs::UInt16>("base/cmd", 10 , &CrCanNode::baseCmdCallback, this);
@@ -126,23 +126,23 @@ void CrCanNode::baseMotorCmdVelCallback(const std_msgs::Int16MultiArray::ConstPt
 	this->sendData(id_baseMotorCmdVel2, msg->data[2]);
 }
 
-void CrCanNode::launcherCmdCallback(const std_msgs::UInt16::ConstPtr& msg)
+void CrCanNode::handCmdCallback(const std_msgs::UInt16::ConstPtr& msg)
 {
-	this->sendData(id_launcherCmd, msg->data);
+	this->sendData(id_handCmd, msg->data);
 }
 
 void CrCanNode::canRxCallback(const can_msgs::CanFrame::ConstPtr &msg)
 {
-	std_msgs::UInt16 _launcher_status_msg;
+	std_msgs::UInt16 _hand_status_msg;
 	std_msgs::UInt16 _base_status_msg;
 	std_msgs::Float64 _base_odom_x_msg;
 	std_msgs::Float64 _base_odom_y_msg;
 	std_msgs::Float64 _base_odom_yaw_msg;
 	switch(msg->id)
 	{
-	case id_launcherStatus:
-		can_unpack(msg->data, _launcher_status_msg.data);
-		_launcher_status_pub.publish(_launcher_status_msg);
+	case id_handStatus:
+		can_unpack(msg->data, _hand_status_msg.data);
+		_hand_status_pub.publish(_hand_status_msg);
 		break;
 
 	case id_baseStatus:

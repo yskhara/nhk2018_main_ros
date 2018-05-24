@@ -9,22 +9,17 @@
     
     <!-- base controller -->
     <node pkg="base_controller" type="base_controller" name="base_ctrl" output="screen">
-       <param name="motor_max_acc" value="300.0" />
-       <param name="motor_max_vel" value="200.0" />
-       <param name="invert_x" value="false" />
+       <param name="motor_max_acc" value="600.0" />
+       <param name="motor_max_vel" value="400.0" />
+       <param name="invert_x" value="true" />
        <param name="invert_y" value="true" />
        <param name="invert_z" value="false" />
        <remap from="motor_cmd_vel" to="base/motor_cmd_vel" />
     </node>
     
-    <!-- joy node -->
-    <node respawn="true" pkg="joy" type="joy_node" name="joy_node" >
-        <param name="dev" type="string" value="/dev/input/js0" />
-        <param name="deadzone" value="0.12" />
-    </node>
-    
     <include file="$(find navigation)/launch/navigation.launch">
-        <arg name="use_amcl" value="false" />
+        <arg name="use_amcl" value="true" />
+        <arg name="use_classic_urg" value="true" />
         <arg name="map_file" value="$(find navigation)/map/abu2018_map.yaml" />
         <arg name="odom_x_coeff" value="-1.0" />
         <arg name="odom_y_coeff" value="-1.0" />
@@ -32,6 +27,12 @@
         <arg name="odom_swap_xy" value="false" />
         <arg name="useless_planner_conf_file" value="$(find navigation)/param/useless_planner_params_cr.yaml" />
     </include>
+    
+    <!-- joy node -->
+    <node respawn="true" pkg="joy" type="joy_node" name="joy_node" >
+        <param name="dev" type="string" value="/dev/input/js0" />
+        <param name="deadzone" value="0.12" />
+    </node>
 
     <!-- tr_main -->
     <!-- node pkg="nhk2018_main_ros" type="tr_main_auto_1v" name="main" output="screen">
@@ -61,19 +62,4 @@
     <!-- usb_can -->
     <node pkg="nhk2018_main_ros" type="usb_can_node" name="usb_can_node">
     </node>
-    
-    
-    
-    <!-- hand itself -->
-    <node pkg="rosserial_server" type="serial_node" name="hands">
-<rosparam>
-port: /dev/ttyUSB1
-baud: 57600
-require:
-  publishers: [  ]
-  subscribers: [ shutdown ]
-</rosparam>
-    </node>
-    
-    <node pkg="rosserial_python" type="message_info_service.py" name="rosserial_message_info" />
 </launch>
