@@ -18,7 +18,8 @@
 #include <vector>
 #include <string>
 
-#include "Coordinates.hpp"
+//#include "Coordinates.hpp"
+#include "PathsCR.hpp"
 
 enum class CRControllerStatus : uint16_t
 {
@@ -419,7 +420,6 @@ void CrMain::handStatusCallback(const std_msgs::UInt16::ConstPtr& msg)
 		this->_delivery_cplt_left = true;
 		break;
 
-
 	default:
 		break;
 	}
@@ -657,7 +657,8 @@ void CrMain::publish_path(geometry_msgs::Pose from, geometry_msgs::Pose via, geo
 
 void CrMain::control_timer_callback(const ros::TimerEvent& event)
 {
-	this->publish_path(Coordinates::GetInstance()->get_cr_path_pp1_to_dp1());
+	//this->publish_path(PathsCR::GetInstance()->get_cr_path_sz_to_pp1());
+	//this->publish_path(PathsCR::GetInstance()->get_cr_path_pp1_to_dp1());
 
 	if(this->command_list.size() <= this->currentCommandIndex)
 	{
@@ -708,7 +709,7 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 		{
 			//this->unchuck_all();
 
-			set_pose(Coordinates::GetInstance()->get_cr_sz());
+			set_pose(PathsCR::GetInstance()->get_cr_sz());
 
 			this->_next_pressed = false;
 			//clear_flags();
@@ -746,7 +747,7 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 		}
 		else
 		{
-			this->publish_path(Coordinates::GetInstance()->get_cr_sz(), Coordinates::GetInstance()->get_cr_wp0(), Coordinates::GetInstance()->get_cr_pp1());
+			this->publish_path(PathsCR::GetInstance()->get_cr_path_sz_to_pp1());
 
 			clear_flags();
 			this->_status = CRControllerStatus::moving;
@@ -771,7 +772,7 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 		}
 		else
 		{
-			this->publish_path(Coordinates::GetInstance()->get_cr_path_pp1_to_dp1());
+			this->publish_path(PathsCR::GetInstance()->get_cr_path_pp1_to_dp1());
 
 			clear_flags();
 			this->_status = CRControllerStatus::moving;
@@ -804,19 +805,19 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 
 			_pose.header.frame_id = "map";
 			_pose.header.stamp = ros::Time::now();
-			_pose.pose = Coordinates::GetInstance()->get_cr_pp2();
+			_pose.pose = PathsCR::GetInstance()->get_cr_pp2();
 			path_msg.poses.push_back(_pose);
 
-			_pose.pose = Coordinates::GetInstance()->get_cr_wp3_1();
+			_pose.pose = PathsCR::GetInstance()->get_cr_wp3_1();
 			path_msg.poses.push_back(_pose);
 
-			_pose.pose = Coordinates::GetInstance()->get_cr_wp3_2();
+			_pose.pose = PathsCR::GetInstance()->get_cr_wp3_2();
 			path_msg.poses.push_back(_pose);
 
-			_pose.pose = Coordinates::GetInstance()->get_cr_wp3_3();
+			_pose.pose = PathsCR::GetInstance()->get_cr_wp3_3();
 			path_msg.poses.push_back(_pose);
 
-			_pose.pose = Coordinates::GetInstance()->get_cr_dp2();
+			_pose.pose = PathsCR::GetInstance()->get_cr_dp2();
 			path_msg.poses.push_back(_pose);
 
 			this->publish_path(path_msg);
@@ -864,19 +865,19 @@ void CrMain::control_timer_callback(const ros::TimerEvent& event)
 
 			_pose.header.frame_id = "map";
 			_pose.header.stamp = ros::Time::now();
-			_pose.pose = Coordinates::GetInstance()->get_cr_dp1();
+			_pose.pose = PathsCR::GetInstance()->get_cr_dp1();
 			path_msg.poses.push_back(_pose);
 
-			_pose.pose = Coordinates::GetInstance()->get_cr_wp2_0();
+			_pose.pose = PathsCR::GetInstance()->get_cr_wp2_0();
 			path_msg.poses.push_back(_pose);
 
-			_pose.pose = Coordinates::GetInstance()->get_cr_wp2_1();
+			_pose.pose = PathsCR::GetInstance()->get_cr_wp2_1();
 			path_msg.poses.push_back(_pose);
 
-			_pose.pose = Coordinates::GetInstance()->get_cr_wp2_2();
+			_pose.pose = PathsCR::GetInstance()->get_cr_wp2_2();
 			path_msg.poses.push_back(_pose);
 
-			_pose.pose = Coordinates::GetInstance()->get_cr_pp2();
+			_pose.pose = PathsCR::GetInstance()->get_cr_pp2();
 			path_msg.poses.push_back(_pose);
 
 			this->publish_path(path_msg);
