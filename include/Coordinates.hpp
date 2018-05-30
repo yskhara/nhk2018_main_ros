@@ -266,8 +266,10 @@ Coordinates::Coordinates(void)
 	//this->_tr_tz3.position.x = 7.035;
 	//this->_tr_tz3.position.y = 0.985;
 	//this->_tr_tz3.orientation = tf::createQuaternionMsgFromYaw(M_PI/2);
-	this->_tr_tz3.position.x = 7.100;
-	this->_tr_tz3.position.y = 1.300;
+	//this->_tr_tz3.position.x = 7.100;
+	//this->_tr_tz3.position.y = 1.300;
+	this->_tr_tz3.position.x = 7.023;
+	this->_tr_tz3.position.y = 1.444;	
 	this->_tr_tz3.position.z = 0.000;
 	this->_tr_tz3.orientation = tf::createQuaternionMsgFromYaw(M_PI/2);
 

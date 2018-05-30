@@ -37,7 +37,7 @@
         <!--
         <rosparam param="unchuck_thres">[540, 540, 200]</rosparam>
         -->
-        <rosparam param="unchuck_thres">[280, 280, 250]</rosparam>
+        <rosparam param="unchuck_thres">[300, 280, 250]</rosparam>
         <param name="op_mode" value="full_op" />
     </node>
     <!-- 540 くらいが実用的な限界です -->

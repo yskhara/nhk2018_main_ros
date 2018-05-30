@@ -607,7 +607,7 @@ void TrMain::goalReachedCallback(const std_msgs::Bool::ConstPtr& msg)
 	//ROS_INFO("goal reached.");
 
 	abort_msg.data = true;
-	this->abort_pub.publish(abort_msg);
+	//this->abort_pub.publish(abort_msg);
 
 	this->_goal_reached = true;
 }
