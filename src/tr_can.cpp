@@ -67,6 +67,14 @@ private:
 
 	void canRxCallback(const can_msgs::CanFrame::ConstPtr &msg);
 
+	void motor0CmdVelCallback(const std_msgs::Float64::ConstPtr& msg);
+	void motor1CmdVelCallback(const std_msgs::Float64::ConstPtr& msg);
+	void motor2CmdVelCallback(const std_msgs::Float64::ConstPtr& msg);
+
+	void motor0CmdCallback(const std_msgs::UInt16::ConstPtr& msg);
+	void motor1CmdCallback(const std_msgs::UInt16::ConstPtr& msg);
+	void motor2CmdCallback(const std_msgs::UInt16::ConstPtr& msg);
+
 	template<typename T>
 	void sendData(const uint16_t id, const T data);
 
@@ -86,6 +94,15 @@ private:
 	ros::Publisher  _base_odom_yaw_pub;
 	ros::Publisher  _base_conf_pub;
 
+	ros::Subscriber _base_motor0_cmd_vel_sub;
+	ros::Subscriber _base_motor0_cmd_sub;
+
+	ros::Subscriber _base_motor1_cmd_vel_sub;
+	ros::Subscriber _base_motor1_cmd_sub;
+
+	ros::Subscriber _base_motor2_cmd_vel_sub;
+	ros::Subscriber _base_motor2_cmd_sub;
+
 	static constexpr uint16_t id_baseStatus       = 0x200;
 	static constexpr uint16_t id_baseCmd          = 0x201;
 	static constexpr uint16_t id_baseMotorCmdVel0 = 0x202;
@@ -98,6 +115,14 @@ private:
 
 	static constexpr uint16_t id_launcherStatus	= 0x300;
 	static constexpr uint16_t id_launcherCmd	= 0x301;
+
+	static constexpr uint16_t id_base_motor0_cmd	= 0x680;
+	static constexpr uint16_t id_base_motor1_cmd	= 0x690;
+	static constexpr uint16_t id_base_motor2_cmd	= 0x6a0;
+
+	static constexpr uint16_t id_base_motor0_cmd_vel	= 0x681;
+	static constexpr uint16_t id_base_motor1_cmd_vel	= 0x691;
+	static constexpr uint16_t id_base_motor2_cmd_vel	= 0x6a1;
 };
 
 TrCanNode::TrCanNode(void)
@@ -115,6 +140,14 @@ TrCanNode::TrCanNode(void)
 	_base_odom_y_pub		= _nh.advertise<std_msgs::Float64>("base/odom/y", 10);
 	_base_odom_yaw_pub		= _nh.advertise<std_msgs::Float64>("base/odom/yaw", 10);
 	_base_conf_pub			= _nh.advertise<std_msgs::UInt8>("base/conf", 10);
+
+	_base_motor0_cmd_vel_sub	= _nh.subscribe<std_msgs::Float64>("base/motor0_cmd_vel", 10, &TrCanNode::motor0CmdVelCallback, this);
+	_base_motor1_cmd_vel_sub	= _nh.subscribe<std_msgs::Float64>("base/motor1_cmd_vel", 10, &TrCanNode::motor1CmdVelCallback, this);
+	_base_motor2_cmd_vel_sub	= _nh.subscribe<std_msgs::Float64>("base/motor2_cmd_vel", 10, &TrCanNode::motor2CmdVelCallback, this);
+
+	_base_motor0_cmd_sub	= _nh.subscribe<std_msgs::UInt16>("base/motor0_cmd", 10, &TrCanNode::motor0CmdCallback, this);
+	_base_motor1_cmd_sub	= _nh.subscribe<std_msgs::UInt16>("base/motor1_cmd", 10, &TrCanNode::motor1CmdCallback, this);
+	_base_motor2_cmd_sub	= _nh.subscribe<std_msgs::UInt16>("base/motor2_cmd", 10, &TrCanNode::motor2CmdCallback, this);
 }
 
 
@@ -133,6 +166,36 @@ void TrCanNode::baseMotorCmdVelCallback(const std_msgs::Int16MultiArray::ConstPt
 void TrCanNode::launcherCmdCallback(const std_msgs::UInt16::ConstPtr& msg)
 {
 	this->sendData(id_launcherCmd, msg->data);
+}
+
+void TrCanNode::motor0CmdCallback(const std_msgs::UInt16::ConstPtr& msg)
+{
+	this->sendData(id_base_motor0_cmd, msg->data);
+}
+
+void TrCanNode::motor1CmdCallback(const std_msgs::UInt16::ConstPtr& msg)
+{
+	this->sendData(id_base_motor1_cmd, msg->data);
+}
+
+void TrCanNode::motor2CmdCallback(const std_msgs::UInt16::ConstPtr& msg)
+{
+	this->sendData(id_base_motor2_cmd, msg->data);
+}
+
+void TrCanNode::motor0CmdVelCallback(const std_msgs::Float64::ConstPtr& msg)
+{
+	this->sendData(id_base_motor0_cmd_vel, msg->data);
+}
+
+void TrCanNode::motor1CmdVelCallback(const std_msgs::Float64::ConstPtr& msg)
+{
+	this->sendData(id_base_motor1_cmd_vel, msg->data);
+}
+
+void TrCanNode::motor2CmdVelCallback(const std_msgs::Float64::ConstPtr& msg)
+{
+	this->sendData(id_base_motor2_cmd_vel, msg->data);
 }
 
 void TrCanNode::canRxCallback(const can_msgs::CanFrame::ConstPtr &msg)
