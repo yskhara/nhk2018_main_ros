@@ -529,6 +529,7 @@ void UsbCanNode::canTxCallback(const can_msgs::CanFrame::ConstPtr &msg)
 
 	// add carriage return (slcan EOL)
 	str_buf[i++] = '\r';
+	str_buf[i++] = '\0';
 
 	//this->_port->write_some(buffer(str_buf, i));
 	this->send(str_buf);

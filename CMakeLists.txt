@@ -155,6 +155,9 @@ target_link_libraries(tr_main_auto_2v0 ${catkin_LIBRARIES})
 add_executable(tr_launcher_unitTest src/tr_launcher_unitTest.cpp)
 target_link_libraries(tr_launcher_unitTest ${catkin_LIBRARIES})
 
+add_executable(mr2_leg_unit_test src/mr2_leg_unit_test.cpp)
+target_link_libraries(mr2_leg_unit_test ${catkin_LIBRARIES})
+
 add_executable(tr_can src/tr_can.cpp)
 target_link_libraries(tr_can ${catkin_LIBRARIES})
 add_dependencies(tr_can ${catkin_EXPORTED_TARGETS})
